@@ -2,13 +2,14 @@ import telebot
 from fpdf import FPDF
 from datetime import datetime
 import random
+import os
 
 API_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg"  # Bu yerga o‘z tokeningizni qo‘ying
 bot = telebot.TeleBot(API_TOKEN)
 
 users = {}
 
-# Jumlalar va so‘zlar ro'yxati (uzun matn yaratish uchun)
+# Jumla va paragraf ro'yxati (uzun matn yaratish uchun)
 sentences = [
     "Kirish qismi mavzuni umumiy tushuntiradi va ahamiyatini ko‘rsatadi.",
     "Nazariy qismda asosiy tushunchalar va printsiplar bayon qilinadi.",
@@ -17,7 +18,13 @@ sentences = [
     "Xulosa qismi o‘rganilgan nazariy va amaliy jihatlarni umumlashtiradi.",
     "Adabiyotlar ro‘yxati manbalarni ko‘rsatadi va tadqiqot ishonchliligini oshiradi.",
     "Tadqiqot natijalari kelajakda qo‘llanish imkoniyatlarini ko‘rsatadi.",
-    "Har bir bo‘lim mavzuni chuqur tahlil qiladi va misollar bilan mustahkamlaydi."
+    "Har bir bo‘lim mavzuni chuqur tahlil qiladi va misollar bilan mustahkamlaydi.",
+    "Bu mavzu bo‘yicha tadqiqot va tahlillar muhim ahamiyatga ega.",
+    "Matn har bir varaqda mukammal tarzda joylashtiriladi.",
+    "Kurs ishida nazariy va amaliy jihatlar o‘rganildi.",
+    "Ilmiy tadqiqotlar mavzuning ahamiyatini kuchaytiradi.",
+    "Har bir bo‘lim batafsil tahlil va misollar bilan boyitiladi.",
+    "Bu mavzuning ilmiy ahamiyati katta."
 ]
 
 # ======================
@@ -26,15 +33,15 @@ sentences = [
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("📚 Daftar to‘ldirish")
-    bot.send_message(message.chat.id, "📚 12 varaqli yoki ko‘proq daftar botiga xush kelibsiz! Tugmani bosing.", reply_markup=markup)
+    markup.add("📚 Katta Kitob")
+    bot.send_message(message.chat.id, "📚 Katta kitob PDF botga xush kelibsiz! Tugmani bosing.", reply_markup=markup)
 
 # ======================
 # Mavzu so‘rash
 # ======================
-@bot.message_handler(func=lambda m: m.text == "📚 Daftar to‘ldirish")
+@bot.message_handler(func=lambda m: m.text == "📚 Katta Kitob")
 def ask_topic(message):
-    msg = bot.send_message(message.chat.id, "📌 Daftar mavzusini yozing:")
+    msg = bot.send_message(message.chat.id, "📌 Kitob mavzusini yozing:")
     bot.register_next_step_handler(msg, ask_name)
 
 def ask_name(message):
@@ -49,7 +56,7 @@ def ask_group(message):
     bot.register_next_step_handler(msg, generate_pdf)
 
 # ======================
-# PDF yaratish (12 varaq yoki ko‘proq)
+# PDF yaratish (katta kitob)
 # ======================
 def generate_pdf(message):
     chat_id = message.chat.id
@@ -60,30 +67,38 @@ def generate_pdf(message):
     group = users[chat_id]["group"]
     year = datetime.now().year
 
-    num_pages = 12   # 12 varaq, xohlasa oshirish mumkin
-    words_per_page = 5000  # Har varaqdagi so‘zlar soni
-    # So‘zlarni to‘ldirish
-    pages_text = []
-    for _ in range(num_pages):
-        page_text = " ".join([random.choice(sentences) for _ in range(words_per_page)])
-        pages_text.append(page_text)
+    # ======================
+    # Parametrlar
+    # ======================
+    num_pages = 100           # 100 varaq → katta kitob
+    words_per_page = 10000    # Har varaq ~10k so‘z → jami ~1M so‘z
 
+    # ======================
     # PDF yaratish
+    # ======================
     pdf = FPDF(format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("Arial", '', 12)
 
-    for i, page_text in enumerate(pages_text, start=1):
+    for page in range(1, num_pages + 1):
         pdf.add_page()
-        pdf.multi_cell(0, 8, f"Daftar - Varaq {i}\nMavzu: {topic}\nBajardi: {name}\nGuruh: {group}\nYil: {year}\n\n")
-        pdf.multi_cell(0, 8, page_text)
+        pdf.set_font("Arial", 'B', 14)
+        pdf.multi_cell(0, 10, f"Kitob - Varaq {page}\nMavzu: {topic}\nBajardi: {name}\nGuruh: {group}\nYil: {year}\n\n")
+        pdf.set_font("Arial", '', 12)
 
-    file_name = f"{chat_id}_daftar.pdf"
+        # Har varaq uchun random matn
+        varaq_text = " ".join([random.choice(sentences) for _ in range(words_per_page)])
+        pdf.multi_cell(0, 6, varaq_text)
+
+    file_name = f"{chat_id}_katta_kitob.pdf"
     pdf.output(file_name)
 
+    # Telegramga yuborish
     with open(file_name, "rb") as f:
         bot.send_document(chat_id, f)
 
+    # Faylni o‘chirish (xotira tejash uchun)
+    os.remove(file_name)
     users.pop(chat_id)
 
 # ======================
@@ -97,5 +112,5 @@ def fallback(message):
 # Bot ishga tushirish
 # ======================
 if __name__ == "__main__":
-    print("🚀 Daftar bot ishga tushdi...")
+    print("🚀 Katta kitob bot ishga tushdi...")
     bot.infinity_polling()
