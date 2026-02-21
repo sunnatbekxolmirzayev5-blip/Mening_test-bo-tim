@@ -3,13 +3,17 @@ from telebot import types
 from datetime import datetime
 import random
 
-# ⚠️ O'Z TOKENINGIZNI YOZING
 API_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg"
-
 bot = telebot.TeleBot(API_TOKEN)
 
-# Foydalanuvchi ma'lumotlarini saqlash
 users = {}
+
+# So‘zlar ro‘yxati (matnni uzun qiladigan)
+words = [
+    "kirish", "tahlil", "nazariya", "misol", "chiqish", 
+    "natija", "xulosa", "tajriba", "o‘rganish", "ma’lumot",
+    "o‘zlashtirish", "ilmiy", "amaliy", "ilm", "tadqiqot"
+]
 
 # ======================
 # START
@@ -18,11 +22,9 @@ users = {}
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("📚 Kurs ishi yozish")
-
     bot.send_message(
         message.chat.id,
-        "📚 25–40 punktli kurs ishi yozish botiga xush kelibsiz!\n\n"
-        "Boshlash uchun tugmani bosing.",
+        "📚 Kurs ishi botiga xush kelibsiz! Boshlash uchun tugmani bosing.",
         reply_markup=markup
     )
 
@@ -57,45 +59,50 @@ def generate_course(message):
     group = users[chat_id]["group"]
     year = datetime.now().year
 
-    # 25–40 punkt yaratish
-    num_points = random.randint(25, 40)
-    points = [f"{i+1}. {topic} bilan bog‘liq muhim jihat №{i+1}" for i in range(num_points)]
-    points_text = "\n".join(points)
+    # Matnni generatsiya qilish
+    total_words = 400000
+    text_list = []
+    for i in range(total_words):
+        text_list.append(random.choice(words))
+    
+    # Matnni bo‘laklarga bo‘lish (Telegram xabar chegarasi ~4000 belgi)
+    text_chunks = []
+    chunk_size = 4000
+    full_text = " ".join(text_list)
+    for i in range(0, len(full_text), chunk_size):
+        text_chunks.append(full_text[i:i+chunk_size])
 
-    text = f"""
+    # Kirish qismi
+    intro = f"""
 📚 *KURS ISHI*
 
 *Mavzu:* {topic}
-
-*Bajardi:* {name}  
-*Guruh:* {group}  
+*Bajardi:* {name}
+*Guruh:* {group}
 *Yil:* {year}
 
 --------------------------------------
+*Kirish*
+Ushbu kurs ishi mavzu bo‘yicha chuqur tahlil va amaliy tadqiqotlarni o‘z ichiga oladi.
+"""
+    bot.send_message(chat_id, intro, parse_mode="Markdown")
 
-*Kurs ishining 25–40 punktli tahlili:*
+    # Matn bo‘laklarini yuborish
+    for chunk in text_chunks:
+        bot.send_message(chat_id, chunk)
 
-{points_text}
-
+    # Xulosa
+    conclusion = """
 --------------------------------------
-
-*XULOSA*
-
-Yuqoridagi {num_points} punkt asosida {topic} mavzusi chuqur o‘rganildi.
-Nazariy va amaliy jihatlar o‘rganildi va kelgusida rivojlantirish imkoniyatlari mavjud.
-
+*Xulosa*
+Ushbu kurs ishida mavzu chuqur o‘rganildi. Nazariy va amaliy jihatlar tahlil qilindi.
 --------------------------------------
-
-*FOYDALANILGAN ADABIYOTLAR*
-
-1. Darslik va o‘quv qo‘llanmalar  
-2. Ilmiy maqolalar  
+*Foydalanilgan adabiyotlar*
+1. Darslik va o‘quv qo‘llanmalar
+2. Ilmiy maqolalar
 3. Internet manbalari
 """
-
-    bot.send_message(chat_id, text, parse_mode="Markdown")
-    bot.send_message(chat_id, "✅ Kurs ishi tayyor! /start orqali qayta boshlashingiz mumkin.")
-
+    bot.send_message(chat_id, conclusion, parse_mode="Markdown")
     users.pop(chat_id)
 
 # ======================
