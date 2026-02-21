@@ -1,207 +1,143 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
+import telebot
+from telebot import types
+from fpdf import FPDF
+import google.generativeai as genai
+import os
+import time
+import logging
 
-# C extensions
-*.so
+# --- LOGGING (Xatolarni terminalda ko'rish uchun) ---
+logging.basicConfig(level=logging.INFO)
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# --- KONFIGURATSIYA ---
+TOKEN = '8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg'
+GEMINI_KEY = 'AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw' # O'zingizning API kalitingiz
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# Gemini AI sozlamalari
+genai.configure(api_key=GEMINI_KEY)
+generation_config = {
+  "temperature": 0.7,
+  "top_p": 1,
+  "top_k": 1,
+  "max_output_tokens": 2048,
+}
+model = genai.GenerativeModel('gemini-pro', generation_config=generation_config)
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+bot = telebot.TeleBot(TOKEN)
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
+# --- PDF STRUKTURASI ---
+class PDF_Generator(FPDF):
+    def __init__(self):
+        super().__init__()
+        self.add_font('Arial', '', 'Arial.ttf', uni=True) # Agar maxsus shrift bo'lsa
+        
+    def header(self):
+        if self.page_no() > 1:
+            self.set_font('Helvetica', 'I', 8)
+            self.cell(0, 10, 'Ilmiy tadqiqot ishi - Akademik Nashr 2026', 0, 1, 'R')
 
-# Translations
-*.mo
-*.pot
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Helvetica', 'I', 9)
+        self.cell(0, 10, f'Sahifa {self.page_no()}', 0, 0, 'C')
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# --- AI BILAN ISHLASH ---
+def ask_gemini(prompt):
+    """AI limitga tushsa kutib, 5 marta qayta urinadi"""
+    for attempt in range(5):
+        try:
+            response = model.generate_content(prompt)
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            logging.warning(f"AI band. {attempt+1}-urinish. Kutish...")
+            time.sleep(7) # API tinchlanishi uchun kutish
+    return "Tizim tahlilni yakunlay olmadi. Ushbu qism ilmiy adabiyotlar asosida to'ldirilishi tavsiya etiladi."
 
-# Flask stuff:
-instance/
-.webassets-cache
+# --- ASOSIY FUNKSIYALAR ---
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    bot.remove_webhook() # Har ehtimolga qarshi webhookni tozalash
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("💎 Mukkammal 40-50 betlik Kurs ishi"),
+        types.KeyboardButton("📂 Mustaqil ish (Kengaytirilgan)"),
+        types.KeyboardButton("📊 Slayd uchun mukkammal reja")
+    )
+    bot.send_message(message.chat.id, f"Assalomu alaykum, {message.from_user.first_name}!\n\nUshbu bot orqali siz darslik darajasidagi, takrorlanmas matnli ilmiy ishlarni olasiz.", reply_markup=markup)
 
-# Scrapy stuff:
-.scrapy
+@bot.message_handler(func=lambda m: m.text == "💎 Mukkammal 40-50 betlik Kurs ishi")
+def kurs_start(message):
+    msg = bot.send_message(message.chat.id, "Kurs ishi mavzusini kiriting (Masalan: O'zbekistonda raqamli iqtisodiyot):")
+    bot.register_next_step_handler(msg, process_full_pdf)
 
-# Sphinx documentation
-docs/_build/
+def process_full_pdf(message):
+    topic = message.text
+    status = bot.send_message(message.chat.id, "⚙️ Jarayon boshlandi. Bot hozir 40-50 marta AIga so'rov yuboradi. Bu 5-10 daqiqa vaqt olishi mumkin. Iltimos, kutib turing...")
+    
+    pdf = PDF_Generator()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    
+    # 1. TITUL VARAG'I
+    pdf.add_page()
+    pdf.set_font("Helvetica", 'B', 16)
+    pdf.multi_cell(0, 10, "O'ZBEKISTON RESPUBLIKASI\nOLIY TA'LIM, FAN VA INNOVATSIYALAR VAZIRLIGI\n\nILMIY TADQIQOTLAR MARKAZI", 0, 'C')
+    pdf.ln(60)
+    pdf.set_font("Helvetica", 'B', 24)
+    pdf.multi_cell(0, 15, topic.upper(), 0, 'C')
+    pdf.ln(30)
+    pdf.set_font("Helvetica", 'B', 18)
+    pdf.cell(0, 10, "KURS ISHI", 0, 1, 'C')
+    pdf.ln(70)
+    pdf.set_font("Helvetica", '', 14)
+    pdf.cell(0, 10, "TOSHKENT - 2026", 0, 1, 'C')
 
-# PyBuilder
-.pybuilder/
-target/
+    # 2. STRUKTURA (Haqiqiy 40 bet uchun rejani ko'paytiramiz)
+    structure = [
+        ("KIRISH", "Mavzuning dolzarbligi, obyekti va predmeti haqida 5 betlik kirish."),
+        ("I-BOB. NAZARIY TADQIQOTLAR", f"{topic} sohasidagi fundamental nazariyalar."),
+        ("1.1. Tarixiy yondashuvlar", "Sohaning paydo bo'lishi va rivojlanish bosqichlari."),
+        ("1.2. Xalqaro olimlar tahlili", "AQSH, Evropa va Osiyo olimlarining ilmiy qarashlari."),
+        ("II-BOB. AMALIY TAHLILLAR", f"{topic} bo'yicha O'zbekistondagi real holat."),
+        ("2.1. Statistik ko'rsatkichlar", "Oxirgi 5 yillik raqamlar va jadvallar tahlili."),
+        ("2.2. Mavjud muammolar", "Sohadagi kamchiliklar va to'siqlar."),
+        ("XULOSA", "Tadqiqot natijalari va 12 ta amaliy tavsiya."),
+        ("ADABIYOTLAR", "Kamida 25 ta zamonaviy manbalar ro'yxati.")
+    ]
 
-# Jupyter Notebook
-.ipynb_checkpoints
+    # 3. GENERATSIYA ZANJIRI
+    for title, task in structure:
+        # Har bir bo'limni 4-5 marta so'rab, hajmini oshiramiz
+        for sub_part in range(1, 6):
+            pdf.add_page()
+            pdf.set_font("Helvetica", 'B', 16)
+            pdf.cell(0, 10, f"{title} (Davomi {sub_part})", 0, 1, 'L')
+            pdf.ln(5)
+            pdf.set_font("Helvetica", '', 12)
+            
+            prompt = f"'{topic}' mavzusida {title} qismi uchun {task}. Bu {sub_part}-qism. Juda batafsil, ilmiy tilda, kamida 600 ta so'z yoz. Gaplar takrorlanmasin."
+            text = ask_gemini(prompt)
+            pdf.multi_cell(0, 10, text)
+            time.sleep(3) # API blockdan himoya
 
-# IPython
-profile_default/
-ipython_config.py
+    file_name = f"Kurs_ishi_{message.chat.id}.pdf"
+    pdf.output(file_name)
+    
+    with open(file_name, 'rb') as f:
+        bot.send_document(message.chat.id, f, caption=f"✅ Mukkammal kurs ishi tayyor!\nMavzu: {topic}\nHajmi: 40+ sahifa")
+    
+    os.remove(file_name)
+    bot.delete_message(message.chat.id, status.message_id)
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-#poetry.toml
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-#pdm.lock
-#pdm.toml
-.pdm-python
-.pdm-build/
-
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-#pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
+# --- CONFLICT 409 XATOSINI DAVOLASH ---
+if __name__ == "__main__":
+    bot.remove_webhook()
+    time.sleep(2)
+    print("Bot muvaffaqiyatli ishga tushdi...")
+    
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=1, timeout=60)
+        except Exception as e:
+            logging.error(f"Xatolik yuz berdi: {e}")
+            time.sleep(10) # 10 soniya kutib qayta ulanadi
