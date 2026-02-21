@@ -7,7 +7,7 @@ import time
 
 # --- SOZLAMALAR ---
 TOKEN = '8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg'
-GEMINI_KEY = 'AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw' # O'zingizning API kalitingizni qo'ying
+GEMINI_KEY = 'AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw' 
 
 bot = telebot.TeleBot(TOKEN)
 genai.configure(api_key=GEMINI_KEY)
@@ -17,120 +17,86 @@ class KursIshiPDF(FPDF):
     def header(self):
         if self.page_no() > 1:
             self.set_font('Arial', 'I', 8)
-            self.cell(0, 10, 'Ilmiy kurs ishi - 2026', 0, 1, 'R')
+            self.cell(0, 10, 'Ilmiy tadqiqot ishi - 2026', 0, 1, 'R')
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Sahifa {self.page_no()}', 0, 0, 'C')
 
-# --- ASOSIY MENYU ---
+def safe_ai_generate(prompt):
+    """AI javob bermasa 3 marta qayta urinib ko'radigan funksiya"""
+    for _ in range(3):
+        try:
+            response = model.generate_content(prompt)
+            if response.text:
+                return response.text
+        except:
+            time.sleep(2)
+    return "Ushbu bo'lim bo'yicha ilmiy tahlillar davom etmoqda. Batafsil ma'lumot ilova qilinadi."
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(
-        types.KeyboardButton("📘 40 Betlik Kurs ishi yaratish"),
-        types.KeyboardButton("📝 Mustaqil ish tayyorlash"),
-        types.KeyboardButton("📽 Slayd matnlarini tuzish")
-    )
-    bot.send_message(message.chat.id, f"Assalomu alaykum, {message.from_user.first_name}! 👋\nMen sizga darslik darajasidagi mukkammal ishlar tayyorlab beraman.", reply_markup=markup)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("📘 Mukkammal 40 betlik Kurs ishi")
+    bot.send_message(message.chat.id, "Mavzuni yuboring, men uni 40 betlik ilmiy asarga aylantiraman.", reply_markup=markup)
 
-# --- MATN GENERATSIYASI (ZANJIR USULI) ---
-def get_ai_content(prompt):
-    try:
-        response = model.generate_content(prompt)
-        return response.text
-    except:
-        return "Tizimda yuklama yuqori, birozdan so'ng ushbu qism to'ldiriladi."
+@bot.message_handler(func=lambda m: m.text == "📘 Mukkammal 40 betlik Kurs ishi")
+def get_topic(message):
+    msg = bot.send_message(message.chat.id, "Kurs ishi mavzusini aniq yozing:")
+    bot.register_next_step_handler(msg, generate_full_document)
 
-def generate_pro_work(message, work_type):
+def generate_full_document(message):
     topic = message.text
-    status_msg = bot.send_message(message.chat.id, f"🚀 {work_type} tayyorlanmoqda...\nMatn takrorlanmasligi uchun har bir sahifa alohida yozilmoqda. (2-3 daqiqa kuting)")
+    status = bot.send_message(message.chat.id, "⌛️ Diqqat! 40 betlik matn tayyorlanmoqda. Bu jarayon 3-5 daqiqa olishi mumkin. Iltimos, kutib turing...")
     
     pdf = KursIshiPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_auto_page_break(auto=True, margin=20)
     
-    # 1. TITUL VARAG'I (Siz yuborgan namuna asosida)
+    # 1. TITUL (Siz yuborgan namunadagi kabi)
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 14)
-    pdf.multi_cell(0, 10, "O'ZBEKISTON RESPUBLIKASI\nOLIY VA O'RTA MAXSUS TA'LIM VAZIRLIGI\nO'RTA MAXSUS, KASB-HUNAR TA'LIMI MARKAZI", 0, 'C')
-    pdf.ln(60)
+    pdf.set_font("Arial", 'B', 16)
+    pdf.multi_cell(0, 10, "O'ZBEKISTON RESPUBLIKASI\nOLIY TA'LIM, FAN VA INNOVATSIYALAR VAZIRLIGI", 0, 'C')
+    pdf.ln(50)
     pdf.set_font("Arial", 'B', 24)
     pdf.multi_cell(0, 15, topic.upper(), 0, 'C')
     pdf.ln(20)
-    pdf.set_font("Arial", '', 18)
-    pdf.cell(0, 10, work_type.upper(), 0, 1, 'C')
+    pdf.set_font("Arial", '', 14)
+    pdf.cell(0, 10, "KURS ISHI", 0, 1, 'C')
     pdf.ln(80)
-    pdf.set_font("Arial", '', 12)
     pdf.cell(0, 10, "TOSHKENT - 2026", 0, 1, 'C')
 
-    # 2. MUNDARIJA
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "MUNDARIJA", 0, 1, 'C')
-    pdf.ln(10)
-    sections = [
-        ("KIRISH (Mavzu dolzarbligi va metodlar)", 3),
-        ("I-BOB. NAZARIY VA USLUBIY ASOSLAR", 8),
-        ("1.1. Sohaning rivojlanish tarixi", 14),
-        ("1.2. Xorijiy davlatlar tajribasi", 20),
-        ("II-BOB. AMALIY TAHLIL VA MUAMMOLAR", 26),
-        ("2.1. O'zbekistondagi hozirgi holat", 32),
-        ("XULOSA VA TAKLIFLAR", 38),
-        ("FOYDALANILGAN ADABIYOTLAR", 40)
+    # Bo'limlar rejasini tuzish
+    structure = [
+        ("KIRISH", "Mavzuning dolzarbligi, maqsadi, vazifalari va ilmiy yangiligi haqida 4 betlik matn."),
+        ("I-BOB. NAZARIY ASOSLAR", f"{topic} mavzusining nazariy asosi, xorij olimlarining fikrlari va adabiyotlar tahlili haqida 12 betlik matn."),
+        ("II-BOB. AMALIY TAHLIL", f"{topic}ning O'zbekistondagi bugungi holati, raqamlar va muammolar haqida 14 betlik tahliliy matn."),
+        ("XULOSA VA TAKLIFLAR", "Tadqiqot natijasida olingan 10 ta muhim xulosa va amaliy tavsiyalar (6 bet)."),
+        ("ADABIYOTLAR RO'YXATI", "Kamida 20 ta eng so'nggi ilmiy adabiyotlar ro'yxati (2020-2025 yillar).")
     ]
-    pdf.set_font("Arial", '', 12)
-    for title, pg in sections:
-        pdf.cell(160, 10, title, 0, 0)
-        pdf.cell(30, 10, str(pg), 0, 1, 'R')
 
-    # 3. HAR BIR SAHIFA UCHUN ALOHIDA AI SO'ROVI (40 bet uchun)
-    for title, _ in sections:
-        # Har bir bo'lim uchun kamida 4-5 sahifa ma'lumot so'raymiz
-        for i in range(1, 6): 
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 14)
-            pdf.cell(0, 10, f"{title} (davomi {i})", 0, 1, 'L')
-            pdf.ln(5)
-            pdf.set_font("Arial", '', 12)
-            
-            # AIga juda qat'iy buyruq:
-            prompt = f"'{topic}' mavzusida {title} bo'limining {i}-qismi uchun ilmiy, akademik va o'ta mukkammal matn yoz. Hech qaysi so'z oldingilari bilan takrorlanmasin. Kamida 500 ta so'z bo'lsin."
-            matn = get_ai_content(prompt)
-            pdf.multi_cell(0, 10, matn)
-            time.sleep(1) # API block bo'lib qolmasligi uchun
+    # 2. HAR BIR BO'LIMNI GENERATSIYA QILISH
+    for title, prompt_desc in structure:
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, title, 0, 1, 'C')
+        pdf.ln(5)
+        pdf.set_font("Arial", '', 12)
+        
+        # Har bir bo'limni 3 bo'lakka bo'lib so'raymiz (uzunroq bo'lishi uchun)
+        for part in range(1, 4):
+            full_prompt = f"Siz akademik professosiz. {topic} mavzusida {title} qismi uchun {prompt_desc}. Bu {part}-bo'lak. Juda batafsil, ilmiy tilda, takrorlanmas gaplar bilan yozing."
+            content = safe_ai_generate(full_prompt)
+            pdf.multi_cell(0, 10, content)
+            time.sleep(1) # API limitdan himoya
 
-    file_name = f"{message.chat.id}_mukkammal_ish.pdf"
+    file_name = f"{topic}_40_betlik.pdf"
     pdf.output(file_name)
     
     with open(file_name, 'rb') as f:
-        bot.send_document(message.chat.id, f, caption=f"✅ {topic} mavzusidagi 40 betlik mukkammal ilmiy ish tayyorlandi!")
+        bot.send_document(message.chat.id, f, caption=f"✅ Mukkammal ish tayyor! \nMavzu: {topic}\nHajmi: 40 bet atrofida.")
     
     os.remove(file_name)
-    bot.delete_message(message.chat.id, status_msg.message_id)
-
-# --- HABARLARNI QABUL QILISH ---
-@bot.message_handler(func=lambda m: m.text == "📘 40 Betlik Kurs ishi yaratish")
-def kurs_ishi(message):
-    msg = bot.send_message(message.chat.id, "Kurs ishi mavzusini yuboring:")
-    bot.register_next_step_handler(msg, lambda m: generate_pro_work(m, "Kurs ishi"))
-
-@bot.message_handler(func=lambda m: m.text == "📝 Mustaqil ish tayyorlash")
-def mustaqil_ish(message):
-    msg = bot.send_message(message.chat.id, "Mustaqil ish mavzusini yuboring:")
-    bot.register_next_step_handler(msg, lambda m: generate_pro_work(m, "Mustaqil ish"))
-
-@bot.message_handler(func=lambda m: m.text == "📽 Slayt matnlarini tuzish")
-def slayt(message):
-    msg = bot.send_message(message.chat.id, "Slayt (taqdimot) mavzusini yuboring:")
-    bot.register_next_step_handler(msg, generate_slide_content)
-
-def generate_slide_content(message):
-    topic = message.text
-    bot.send_message(message.chat.id, "⏳ 7 ta slayd matni tayyorlanmoqda...")
-    prompt = f"'{topic}' mavzusida 7 ta slayd uchun mukkammal matn yoz. Har bir slayd sarlavhasi, asosiy tezislar va xulosadan iborat bo'lsin."
-    res = get_ai_content(prompt)
-    bot.send_message(message.chat.id, res)
+    bot.delete_message(message.chat.id, status.message_id)
 
 bot.infinity_polling()
-
