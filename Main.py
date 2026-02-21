@@ -1,85 +1,81 @@
 import telebot
 from telebot import types
+import time
 
 # 1. SOZLAMALAR
-API_TOKEN = '8041216411:AAHfLKlXQ6ltm4Gtn2MAiwMTw-nBp71hmbg'
+# Muhim: BotFather'dan yangi API token olgan bo'lsangiz, o'shani qo'ying
+API_TOKEN = '8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg'
 PAYMENT_TOKEN = '371317599:TEST:1771648533486' 
-ADMIN_ID = 8016405262 # O'z ID raqamingizni kiriting
+ADMIN_ID = 8016405262 # O'z ID raqamingiz
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# Foydalanuvchi ma'lumotlarini vaqtinchalik saqlash
-user_data = {}
-
 # 2. START BUYRUG'I
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
+def welcome(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    item1 = types.KeyboardButton("📝 Kurs ishi yaratish")
-    item2 = types.KeyboardButton("📞 Admin")
-    markup.add(item1, item2)
+    markup.add(types.KeyboardButton("📝 Kurs ishi buyurtma qilish"))
     
     bot.send_message(
         message.chat.id, 
-        f"Salom {message.from_user.first_name}! 👋\nMen kurs ishingizni yaratishga yordam beraman. Boshlash uchun tugmani bosing.", 
+        f"Assalomu alaykum, {message.from_user.first_name}!\n"
+        "Men sizga sifatli kurs ishi tayyorlab beraman.", 
         reply_markup=markup
     )
 
-# 3. KURS ISHI YARATISH BOSQICHLARI
-@bot.message_handler(func=lambda message: message.text == "📝 Kurs ishi yaratish")
-def ask_topic(message):
-    msg = bot.send_message(message.chat.id, "Kurs ishingiz mavzusini kiriting (Masalan: Sun'iy intellekt):")
-    bot.register_next_step_handler(msg, process_topic)
+# 3. MAVZUNI SO'RASH VA REJA TUZISH
+@bot.message_handler(func=lambda m: m.text == "📝 Kurs ishi buyurtma qilish")
+def get_topic(message):
+    sent = bot.send_message(message.chat.id, "Kurs ishi mavzusini yozib yuboring:")
+    bot.register_next_step_handler(sent, send_reja)
 
-def process_topic(message):
+def send_reja(message):
     topic = message.text
-    user_data[message.chat.id] = {'topic': topic}
-    
-    # Avtomatik reja namunasi
-    reja = (
-        f"✅ **'{topic}' mavzusi bo'yicha reja tayyor:**\n\n"
+    reja_text = (
+        f"✅ **'{topic}'** mavzusi qabul qilindi.\n\n"
+        "📋 **Kurs ishi rejasi:**\n"
         "1. Kirish\n"
-        f"2. {topic}ning nazariy asoslari\n"
-        f"3. O'zbekistonda {topic} tahlili\n"
+        "2. Nazariy qism (Tushunchalar)\n"
+        "3. Amaliy tahlil va statistik ma'lumotlar\n"
         "4. Xulosa va takliflar\n\n"
-        "💰 Ushbu kurs ishini to'liq (Word) yuklab olish narxi: 5,000 so'm."
+        "💰 Narxi: 5,000 so'm"
     )
     
     markup = types.InlineKeyboardMarkup()
-    pay_button = types.InlineKeyboardButton(text="💳 To'lov qilish va yuklab olish", callback_data="buy_now")
-    markup.add(pay_button)
-    
-    bot.send_message(message.chat.id, reja, reply_markup=markup, parse_mode="Markdown")
+    markup.add(types.InlineKeyboardButton("💳 To'lov qilish va yuklab olish", callback_data="pay"))
+    bot.send_message(message.chat.id, reja_text, reply_markup=markup, parse_mode="Markdown")
 
-# 4. TO'LOV JARAYONI (CALLBACK)
-@bot.callback_query_handler(func=lambda call: call.data == "buy_now")
-def handle_payment(call):
-    topic = user_data.get(call.message.chat.id, {}).get('topic', 'Kurs ishi')
-    
+# 4. TO'LOV INVOYSINI CHIQARISH (Karta kiritish joyi shunda chiqadi)
+@bot.callback_query_handler(func=lambda call: call.data == "pay")
+def create_invoice(call):
     bot.send_invoice(
-        call.message.chat.id, 
-        title=f"{topic} (Kurs ishi)",
-        description="To'liq tayyorlangan kurs ishi paketi",
+        call.message.chat.id,
+        title="Kurs ishi (Word)",
+        description="Tayyor kurs ishi faylini yuklab olish uchun to'lov qiling.",
         provider_token=PAYMENT_TOKEN,
         currency="UZS",
-        prices=[types.LabeledPrice(label="Kurs ishi", amount=500000)], # 5,000 so'm
-        start_parameter="kurs-ishi-gen",
-        payload="payment-success"
+        prices=[types.LabeledPrice(label="Kurs ishi", amount=500000)], # 5,000.00 UZS
+        payload="order_id_123"
     )
 
-# 5. TO'LOVNI TASDIQLASH
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def checkout(pre_checkout_query):
-    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+# 5. TO'LOV JARAYONI (XAVFSIZLIK)
+@bot.pre_checkout_query_handler(func=lambda q: True)
+def checkout(q):
+    bot.answer_pre_checkout_query(q.id, ok=True)
 
 @bot.message_handler(content_types=['successful_payment'])
-def got_payment(message):
-    topic = user_data.get(message.chat.id, {}).get('topic', 'Kurs ishi')
-    bot.send_message(message.chat.id, f"✅ To'lov qabul qilindi! '{topic}' mavzusidagi kurs ishi 5 daqiqa ichida yuboriladi.")
-    
+def success(message):
+    bot.send_message(message.chat.id, "To'lov muvaffaqiyatli! ✅ Tez orada faylni yuboramiz.")
     # Adminga xabar
-    bot.send_message(ADMIN_ID, f"💰 Pul tushdi!\nMavzu: {topic}\nFoydalanuvchi: @{message.from_user.username}")
+    bot.send_message(ADMIN_ID, f"💰 Yangi to'lov: 5,000 so'm\nUser: @{message.from_user.username}")
 
-bot.infinity_polling()
-
-
+# 6. CONFLICT XATOSINI YO'QOTISH UCHUN ASOSIY QISM
+if __name__ == "__main__":
+    while True:
+        try:
+            bot.remove_webhook()
+            print("Bot ishga tushmoqda...")
+            bot.infinity_polling(skip_pending=True)
+        except Exception as e:
+            print(f"Xatolik yuz berdi: {e}")
+            time.sleep(5) # Xato bo'lsa 5 soniya kutib qayta yoqiladi
