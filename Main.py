@@ -1,6 +1,7 @@
 import telebot
 from telebot import types
 from datetime import datetime
+import random
 
 # ⚠️ O'Z TOKENINGIZNI YOZING
 API_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg"
@@ -10,46 +11,43 @@ bot = telebot.TeleBot(API_TOKEN)
 # Foydalanuvchi ma'lumotlarini saqlash
 users = {}
 
-# =========================
+# ======================
 # START
-# =========================
+# ======================
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn = types.KeyboardButton("📚 Kurs ishi yozish")
-    markup.add(btn)
+    markup.add("📚 Kurs ishi yozish")
 
     bot.send_message(
         message.chat.id,
-        "📚 Kurs ishi yozish botiga xush kelibsiz!\n\n"
+        "📚 25–40 punktli kurs ishi yozish botiga xush kelibsiz!\n\n"
         "Boshlash uchun tugmani bosing.",
         reply_markup=markup
     )
 
-# =========================
+# ======================
 # Xizmat tanlash
-# =========================
+# ======================
 @bot.message_handler(func=lambda m: m.text == "📚 Kurs ishi yozish")
-def get_topic(message):
+def ask_topic(message):
     msg = bot.send_message(message.chat.id, "📌 Kurs ishi MAVZUSINI yozing:")
-    bot.register_next_step_handler(msg, get_name)
+    bot.register_next_step_handler(msg, ask_name)
 
-def get_name(message):
+def ask_name(message):
     users[message.chat.id] = {}
     users[message.chat.id]["topic"] = message.text
-
     msg = bot.send_message(message.chat.id, "👤 Ism Familiyangizni yozing:")
-    bot.register_next_step_handler(msg, get_group)
+    bot.register_next_step_handler(msg, ask_group)
 
-def get_group(message):
+def ask_group(message):
     users[message.chat.id]["name"] = message.text
-
     msg = bot.send_message(message.chat.id, "🎓 Guruhingizni yozing:")
     bot.register_next_step_handler(msg, generate_course)
 
-# =========================
-# Kurs ishi yaratish
-# =========================
+# ======================
+# Kurs ishini yaratish
+# ======================
 def generate_course(message):
     chat_id = message.chat.id
     users[chat_id]["group"] = message.text
@@ -59,73 +57,57 @@ def generate_course(message):
     group = users[chat_id]["group"]
     year = datetime.now().year
 
+    # 25–40 punkt yaratish
+    num_points = random.randint(25, 40)
+    points = [f"{i+1}. {topic} bilan bog‘liq muhim jihat №{i+1}" for i in range(num_points)]
+    points_text = "\n".join(points)
+
     text = f"""
-📚 KURS ISHI
+📚 *KURS ISHI*
 
-Mavzu: {topic}
+*Mavzu:* {topic}
 
-Bajardi: {name}
-Guruh: {group}
-Yil: {year}
-
---------------------------------------
-
-KIRISH
-
-Ushbu kurs ishida "{topic}" mavzusi batafsil o‘rganiladi.
-Mazkur mavzu hozirgi kunda dolzarb hisoblanadi va
-ilmiy-amaliy ahamiyatga ega.
+*Bajardi:* {name}  
+*Guruh:* {group}  
+*Yil:* {year}
 
 --------------------------------------
 
-I-BOB. NAZARIY ASOSLAR
+*Kurs ishining 25–40 punktli tahlili:*
 
-{topic} tushunchasi, uning mazmuni va rivojlanish
-bosqichlari tahlil qilinadi.
-Asosiy ilmiy qarashlar va nazariy manbalar ko‘rib chiqiladi.
+{points_text}
 
 --------------------------------------
 
-II-BOB. AMALIY TAHLIL
+*XULOSA*
 
-Amaliy misollar va real ma’lumotlar asosida
-{topic} tahlil qilinadi.
-Muammolar va ularning yechimlari bayon etiladi.
-
---------------------------------------
-
-XULOSA
-
-Yuqoridagi tahlillar asosida quyidagi xulosalarga kelindi:
-
-- {topic} muhim ilmiy yo‘nalish hisoblanadi.
-- Nazariy va amaliy jihatlar bir-birini to‘ldiradi.
-- Kelajakda rivojlantirish imkoniyatlari mavjud.
+Yuqoridagi {num_points} punkt asosida {topic} mavzusi chuqur o‘rganildi.
+Nazariy va amaliy jihatlar o‘rganildi va kelgusida rivojlantirish imkoniyatlari mavjud.
 
 --------------------------------------
 
-FOYDALANILGAN ADABIYOTLAR
+*FOYDALANILGAN ADABIYOTLAR*
 
-1. Darslik va o‘quv qo‘llanmalar
-2. Ilmiy maqolalar
+1. Darslik va o‘quv qo‘llanmalar  
+2. Ilmiy maqolalar  
 3. Internet manbalari
 """
 
-    bot.send_message(chat_id, text)
-    bot.send_message(chat_id, "✅ Kurs ishi tayyor! Yana boshlash uchun /start ni bosing.")
+    bot.send_message(chat_id, text, parse_mode="Markdown")
+    bot.send_message(chat_id, "✅ Kurs ishi tayyor! /start orqali qayta boshlashingiz mumkin.")
 
     users.pop(chat_id)
 
-# =========================
+# ======================
 # Noma'lum xabar
-# =========================
+# ======================
 @bot.message_handler(func=lambda m: True)
 def fallback(message):
     bot.send_message(message.chat.id, "❗ Iltimos tugmani bosing yoki /start yozing.")
 
-# =========================
+# ======================
 # Botni ishga tushirish
-# =========================
+# ======================
 if __name__ == "__main__":
-    print("🚀 Bot ishga tushdi...")
+    print("🚀 Kurs ishi bot ishga tushdi...")
     bot.infinity_polling()
