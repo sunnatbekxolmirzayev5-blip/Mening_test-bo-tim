@@ -2,34 +2,40 @@ import telebot
 from telebot import types
 
 API_TOKEN = '8041216411:AAHfLKlXQ6ltm4Gtn2MAiwMTw-nBp71hmbg'
+PAYMENT_TOKEN ='371317599:TEST:1771648533486' 
+
 bot = telebot.TeleBot(API_TOKEN)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # Tugmalarni yaratish
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    item1 = types.KeyboardButton("📚 Mavzularni ko'rish")
-    item2 = types.KeyboardButton("📝 Kurs ishi tartibi")
-    item3 = types.KeyboardButton("📞 Bog'lanish")
-    
-    markup.add(item1, item2, item3)
-    
-    bot.send_message(message.chat.id, "Salom! Kurs ishi botiga xush kelibsiz. Quyidagi menyudan birini tanlang:", reply_markup=markup)
+    item1 = types.KeyboardButton("💳 Kurs ishi (5,000 so'm)")
+    item2 = types.KeyboardButton("📞 Admin")
+    markup.add(item1, item2)
+    bot.send_message(message.chat.id, "Xush kelibsiz! Kurs ishi endi juda arzon.", reply_markup=markup)
 
-@bot.message_handler(func=lambda message: True)
-def handle_text(message):
-    if message.text == "📚 Mavzularni ko'rish":
-        bot.send_message(message.chat.id, "Mavjud mavzular:\n1. Sun'iy intellekt\n2. Kiberxavfsizlik\n3. Ma'lumotlar bazasi")
-    
-    elif message.text == "📝 Kurs ishi tartibi":
-        bot.send_message(message.chat.id, "Kurs ishi 25-30 bet bo'lishi, mundarija va xulosaga ega bo'lishi kerak.")
-    
-    elif message.text == "📞 Bog'lanish":
-        bot.send_message(message.chat.id, "Yordam uchun: @admin_username ga yozing.")
-    
-    else:
-        bot.reply_to(message, "Tushunmadim, iltimos tugmalardan foydalaning.")
+@bot.message_handler(func=lambda message: message.text == "💳 Kurs ishi (5,000 so'm)")
+def send_invoice(message):
+    bot.send_invoice(
+        message.chat.id, 
+        title="Arzon Kurs Ishi",
+        description="Barcha uchun hamyonbop kurs ishi (Word)",
+        provider_token=PAYMENT_TOKEN,
+        currency="UZS",
+        prices=[types.LabeledPrice(label="Kurs ishi", amount=500000)], # 5,000 so'm
+        start_parameter="kurs-ishi-arzon",
+        payload="test-payment"
+    )
+
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+    bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(message):
+    bot.send_message(message.chat.id, "To'lov uchun rahmat! Kurs ishi xaridingiz tasdiqlandi. ✅")
 
 bot.infinity_polling()
+
 
 
