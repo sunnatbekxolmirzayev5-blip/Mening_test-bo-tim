@@ -2,7 +2,8 @@ import telebot
 import google.generativeai as genai
 
 # API kalitlarini o'zgartiring!
-TELEGRAM_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg "
+TELEGRAM_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg
+ "
 GEMINI_API_KEY = "AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw"
 
 # Gemini API-ni sozlash
