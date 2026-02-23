@@ -6,7 +6,7 @@ import os
 import time
 
 # --- SOZLAMALAR ---
-TOKEN = '8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg'
+TOKEN = '8234527643:AAG3ldC-MD4dYyZUfoOnUHcqACZDjeo2c94'
 GEMINI_KEY = 'AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw' # O'zingizning API kalitingizni qo'ying
 
 bot = telebot.TeleBot(TOKEN)
