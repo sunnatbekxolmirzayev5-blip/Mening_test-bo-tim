@@ -1,143 +1,21 @@
-import telebot
-from telebot import types
-from fpdf import FPDF
-import google.generativeai as genai
-import os
-import time
-import logging
+# Python kesh fayllari
+__pycache__/
+*.py[cod]
+*$py.class
 
-# --- LOGGING (Xatolarni terminalda ko'rish uchun) ---
-logging.basicConfig(level=logging.INFO)
+# Ma'lumotlar bazasi (Render-da bazani yuklamaslik kerak, u o'zi yaratiladi)
+*.db
+*.sqlite3
 
-# --- KONFIGURATSIYA ---
-TOKEN = '8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg'
-GEMINI_KEY = 'AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw' # O'zingizning API kalitingiz
+# Virtual muhit
+venv/
+env/
+ENV/
 
-# Gemini AI sozlamalari
-genai.configure(api_key=GEMINI_KEY)
-generation_config = {
-  "temperature": 0.7,
-  "top_p": 1,
-  "top_k": 1,
-  "max_output_tokens": 2048,
-}
-model = genai.GenerativeModel('gemini-pro', generation_config=generation_config)
+# Maxfiy sozlamalar (Agar .env faylidan foydalansangiz)
+.env
 
-bot = telebot.TeleBot(TOKEN)
+# Tizim fayllari
+.DS_Store
+Thumbs.db
 
-# --- PDF STRUKTURASI ---
-class PDF_Generator(FPDF):
-    def __init__(self):
-        super().__init__()
-        self.add_font('Arial', '', 'Arial.ttf', uni=True) # Agar maxsus shrift bo'lsa
-        
-    def header(self):
-        if self.page_no() > 1:
-            self.set_font('Helvetica', 'I', 8)
-            self.cell(0, 10, 'Ilmiy tadqiqot ishi - Akademik Nashr 2026', 0, 1, 'R')
-
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Helvetica', 'I', 9)
-        self.cell(0, 10, f'Sahifa {self.page_no()}', 0, 0, 'C')
-
-# --- AI BILAN ISHLASH ---
-def ask_gemini(prompt):
-    """AI limitga tushsa kutib, 5 marta qayta urinadi"""
-    for attempt in range(5):
-        try:
-            response = model.generate_content(prompt)
-            if response and response.text:
-                return response.text
-        except Exception as e:
-            logging.warning(f"AI band. {attempt+1}-urinish. Kutish...")
-            time.sleep(7) # API tinchlanishi uchun kutish
-    return "Tizim tahlilni yakunlay olmadi. Ushbu qism ilmiy adabiyotlar asosida to'ldirilishi tavsiya etiladi."
-
-# --- ASOSIY FUNKSIYALAR ---
-@bot.message_handler(commands=['start'])
-def welcome(message):
-    bot.remove_webhook() # Har ehtimolga qarshi webhookni tozalash
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    markup.add(
-        types.KeyboardButton("💎 Mukkammal 40-50 betlik Kurs ishi"),
-        types.KeyboardButton("📂 Mustaqil ish (Kengaytirilgan)"),
-        types.KeyboardButton("📊 Slayd uchun mukkammal reja")
-    )
-    bot.send_message(message.chat.id, f"Assalomu alaykum, {message.from_user.first_name}!\n\nUshbu bot orqali siz darslik darajasidagi, takrorlanmas matnli ilmiy ishlarni olasiz.", reply_markup=markup)
-
-@bot.message_handler(func=lambda m: m.text == "💎 Mukkammal 40-50 betlik Kurs ishi")
-def kurs_start(message):
-    msg = bot.send_message(message.chat.id, "Kurs ishi mavzusini kiriting (Masalan: O'zbekistonda raqamli iqtisodiyot):")
-    bot.register_next_step_handler(msg, process_full_pdf)
-
-def process_full_pdf(message):
-    topic = message.text
-    status = bot.send_message(message.chat.id, "⚙️ Jarayon boshlandi. Bot hozir 40-50 marta AIga so'rov yuboradi. Bu 5-10 daqiqa vaqt olishi mumkin. Iltimos, kutib turing...")
-    
-    pdf = PDF_Generator()
-    pdf.set_auto_page_break(auto=True, margin=20)
-    
-    # 1. TITUL VARAG'I
-    pdf.add_page()
-    pdf.set_font("Helvetica", 'B', 16)
-    pdf.multi_cell(0, 10, "O'ZBEKISTON RESPUBLIKASI\nOLIY TA'LIM, FAN VA INNOVATSIYALAR VAZIRLIGI\n\nILMIY TADQIQOTLAR MARKAZI", 0, 'C')
-    pdf.ln(60)
-    pdf.set_font("Helvetica", 'B', 24)
-    pdf.multi_cell(0, 15, topic.upper(), 0, 'C')
-    pdf.ln(30)
-    pdf.set_font("Helvetica", 'B', 18)
-    pdf.cell(0, 10, "KURS ISHI", 0, 1, 'C')
-    pdf.ln(70)
-    pdf.set_font("Helvetica", '', 14)
-    pdf.cell(0, 10, "TOSHKENT - 2026", 0, 1, 'C')
-
-    # 2. STRUKTURA (Haqiqiy 40 bet uchun rejani ko'paytiramiz)
-    structure = [
-        ("KIRISH", "Mavzuning dolzarbligi, obyekti va predmeti haqida 5 betlik kirish."),
-        ("I-BOB. NAZARIY TADQIQOTLAR", f"{topic} sohasidagi fundamental nazariyalar."),
-        ("1.1. Tarixiy yondashuvlar", "Sohaning paydo bo'lishi va rivojlanish bosqichlari."),
-        ("1.2. Xalqaro olimlar tahlili", "AQSH, Evropa va Osiyo olimlarining ilmiy qarashlari."),
-        ("II-BOB. AMALIY TAHLILLAR", f"{topic} bo'yicha O'zbekistondagi real holat."),
-        ("2.1. Statistik ko'rsatkichlar", "Oxirgi 5 yillik raqamlar va jadvallar tahlili."),
-        ("2.2. Mavjud muammolar", "Sohadagi kamchiliklar va to'siqlar."),
-        ("XULOSA", "Tadqiqot natijalari va 12 ta amaliy tavsiya."),
-        ("ADABIYOTLAR", "Kamida 25 ta zamonaviy manbalar ro'yxati.")
-    ]
-
-    # 3. GENERATSIYA ZANJIRI
-    for title, task in structure:
-        # Har bir bo'limni 4-5 marta so'rab, hajmini oshiramiz
-        for sub_part in range(1, 6):
-            pdf.add_page()
-            pdf.set_font("Helvetica", 'B', 16)
-            pdf.cell(0, 10, f"{title} (Davomi {sub_part})", 0, 1, 'L')
-            pdf.ln(5)
-            pdf.set_font("Helvetica", '', 12)
-            
-            prompt = f"'{topic}' mavzusida {title} qismi uchun {task}. Bu {sub_part}-qism. Juda batafsil, ilmiy tilda, kamida 600 ta so'z yoz. Gaplar takrorlanmasin."
-            text = ask_gemini(prompt)
-            pdf.multi_cell(0, 10, text)
-            time.sleep(3) # API blockdan himoya
-
-    file_name = f"Kurs_ishi_{message.chat.id}.pdf"
-    pdf.output(file_name)
-    
-    with open(file_name, 'rb') as f:
-        bot.send_document(message.chat.id, f, caption=f"✅ Mukkammal kurs ishi tayyor!\nMavzu: {topic}\nHajmi: 40+ sahifa")
-    
-    os.remove(file_name)
-    bot.delete_message(message.chat.id, status.message_id)
-
-# --- CONFLICT 409 XATOSINI DAVOLASH ---
-if __name__ == "__main__":
-    bot.remove_webhook()
-    time.sleep(2)
-    print("Bot muvaffaqiyatli ishga tushdi...")
-    
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=60)
-        except Exception as e:
-            logging.error(f"Xatolik yuz berdi: {e}")
-            time.sleep(10) # 10 soniya kutib qayta ulanadi
