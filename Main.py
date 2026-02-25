@@ -16,8 +16,8 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 import google.generativeai as genai
 
 # --- TOKENLAR ---
-TOKEN = "BOT_TOKEN"
-GEMINI_KEY = "GEMINI_API_KEY"
+TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg"
+GEMINI_KEY = "AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw"
 
 genai.configure(api_key=GEMINI_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
