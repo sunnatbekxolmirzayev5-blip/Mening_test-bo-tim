@@ -1,21 +1,5 @@
-# Python kesh fayllari
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Ma'lumotlar bazasi (Render-da bazani yuklamaslik kerak, u o'zi yaratiladi)
-*.db
-*.sqlite3
-
-# Virtual muhit
-venv/
-env/
-ENV/
-
-# Maxfiy sozlamalar (Agar .env faylidan foydalansangiz)
 .env
-
-# Tizim fayllari
-.DS_Store
-Thumbs.db
+__pycache__/
+*.pyc
+venv/
 
