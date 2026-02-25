@@ -1,6 +1,6 @@
-python-telegram-bot
+pyTelegramBotAPI
 google-generativeai
-python-dotenv
+
 
 
 
