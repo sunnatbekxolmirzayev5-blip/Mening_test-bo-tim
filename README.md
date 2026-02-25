@@ -1,9 +1,9 @@
-# Telegram + Gemini AI Bot
+# AI Mustaqil Ish Bot
+Ushbu bot Telegram va Google Gemini AI yordamida ishlaydi.
 
-Ushbu bot 40 ta ma'lumotni generatsiya qiladi va Google Gemini AI yordamida savollarga javob beradi.
+## Imkoniyatlar:
+- `/start` - Botni ishga tushirish.
+- `/mustaqil` - 40 ta ma'lumotdan iborat listni chiqarish.
+- Gemini AI bilan muloqot qilish.
 
-## Sozlash:
-1. `Main.py` ichiga o'z API kalitlaringizni joylang.
-2. Kutubxonalarni o'rnating: `pip install -r requirements.txt`
-3. Dasturni yurgizing: `python Main.py`
  
