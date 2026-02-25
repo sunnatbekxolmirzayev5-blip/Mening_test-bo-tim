@@ -1,46 +1,46 @@
-import os
-import random
-import google.generativeai as genai
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- SOZLAMALAR ---
+import telebot
+import google.generativeai as genai
+
+# --- KALITLAR ---
 TELEGRAM_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg"
 GEMINI_API_KEY = "AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw"
 
-# Gemini AI ni sozlash
+# Gemini AI sozlamalari
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# 40 ta ma'lumot generatsiya qilish funksiyasi
-def get_40_list():
-    ismlar = ["Ali", "Vali", "Gani", "Sardor", "Malika", "Zilola", "Jasur", "Otabek", "Madina", "Nodira"]
-    data = [f"{i}. {random.choice(ismlar)} - Natija: {random.randint(50, 100)}%" for i in range(1, 41)]
+# Botni sozlash
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+
+def generate_40_list():
+    """Mustaqil ish uchun 40 ta ma'lumot generatsiyasi"""
+    data = []
+    mavzu = "Axborot texnologiyalari va AI"
+    for i in range(1, 41):
+        data.append(f"{i}. {mavzu} sohasidagi muhim bosqich #{i}: Zamonaviy texnologiyalar rivoji.")
     return "\n".join(data)
 
-# /start komandasi uchun funksiya
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    list_40 = get_40_list()
-    await update.message.reply_text(f"Assalomu alaykum! Mana 40 ta ma'lumot:\n\n{list_40}")
-    await update.message.reply_text("Endi menga ixtiyoriy savol bering, Gemini AI javob beradi!")
+@bot.message_handler(commands=['start'])
+def welcome(message):
+    msg = "Assalomu alaykum! Mustaqil ish ma'lumotlarini olish uchun /mustaqil buyrug'ini bering yoki Gemini'ga savol yozing."
+    bot.reply_to(message, msg)
 
-# Gemini AI bilan muloqot funksiyasi
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
+@bot.message_handler(commands=['mustaqil'])
+def send_mustaqil(message):
+    bot.send_message(message.chat.id, "Tayyorlanmoqda, iltimos kuting...")
+    list_data = generate_40_list()
+    # Telegram xabar limiti sababli qismlarga bo'lib yuboramiz
+    bot.send_message(message.chat.id, f"📝 **Mustaqil ish uchun 40 ta ma'lumot:**\n\n{list_data}")
+
+@bot.message_handler(func=lambda message: True)
+def ai_chat(message):
     try:
-        response = model.generate_content(user_text)
-        await update.message.reply_text(response.text)
+        # Gemini AI javobini olish
+        response = model.generate_content(message.text)
+        bot.reply_to(message, response.text)
     except Exception as e:
-        await update.message.reply_text("Xatolik yuz berdi. API kalitni tekshiring.")
+        bot.reply_to(message, "Xatolik yuz berdi. API kalit yoki internetni tekshiring.")
 
-def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
-    
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    print("Bot ishga tushdi...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+print("Bot ishga tushdi...")
+bot.infinity_polling()
