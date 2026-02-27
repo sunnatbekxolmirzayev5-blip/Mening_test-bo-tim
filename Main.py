@@ -1,46 +1,51 @@
 
-import telebot
-import google.generativeai as genai
 
-# --- KALITLAR ---
+    import asyncio
+import logging
+import google.generativeai as genai
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import CommandStart
+
+# --- SOZLAMALAR ---
 TELEGRAM_TOKEN = "8041216411:AAGvwsCzDNlJNbKCXq8gpjWy8rkAZz5hqyg"
 GEMINI_API_KEY = "AIzaSyBE67Ted_BbPRsWKcDeOnrzzSoV3T_IjLw"
 
-# Gemini AI sozlamalari
+# Gemini-ni sozlash
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Botni sozlash
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
+# Bot va Dispatcher
+bot = Bot(token=TELEGRAM_TOKEN)
+dp = Dispatcher()
 
-def generate_40_list():
-    """Mustaqil ish uchun 40 ta ma'lumot generatsiyasi"""
-    data = []
-    mavzu = "Axborot texnologiyalari va AI"
-    for i in range(1, 41):
-        data.append(f"{i}. {mavzu} sohasidagi muhim bosqich #{i}: Zamonaviy texnologiyalar rivoji.")
-    return "\n".join(data)
+# /start komandasi uchun handler
+@dp.message(CommandStart())
+async def start_handler(message: types.Message):
+    await message.answer("Salom! Men Gemini AI bilan ulangan botman. Savolingizni bering!")
 
-@bot.message_handler(commands=['start'])
-def welcome(message):
-    msg = "Assalomu alaykum! Mustaqil ish ma'lumotlarini olish uchun /mustaqil buyrug'ini bering yoki Gemini'ga savol yozing."
-    bot.reply_to(message, msg)
-
-@bot.message_handler(commands=['mustaqil'])
-def send_mustaqil(message):
-    bot.send_message(message.chat.id, "Tayyorlanmoqda, iltimos kuting...")
-    list_data = generate_40_list()
-    # Telegram xabar limiti sababli qismlarga bo'lib yuboramiz
-    bot.send_message(message.chat.id, f"📝 **Mustaqil ish uchun 40 ta ma'lumot:**\n\n{list_data}")
-
-@bot.message_handler(func=lambda message: True)
-def ai_chat(message):
+# Xabarlarni qabul qilib, Gemini-ga yuborish
+@dp.message()
+async def chat_handler(message: types.Message):
+    # Bot "yozmoqda..." holatida ko'rinishi uchun
+    await bot.send_chat_action(message.chat.id, "typing")
+    
     try:
-        # Gemini AI javobini olish
+        # Gemini-dan javob olish
         response = model.generate_content(message.text)
-        bot.reply_to(message, response.text)
+        
+        # Javobni Telegramga yuborish
+        await message.answer(response.text)
     except Exception as e:
-        bot.reply_to(message, "Xatolik yuz berdi. API kalit yoki internetni tekshiring.")
+        logging.error(f"Xatolik yuz berdi: {e}")
+        await message.answer("Kechirasiz, javob qaytarishda xatolik yuz berdi.")
 
-print("Bot ishga tushdi...")
-bot.infinity_polling()
+# Botni ishga tushirish
+async def main():
+    logging.basicConfig(level=logging.INFO)
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Bot to'xtatildi")
